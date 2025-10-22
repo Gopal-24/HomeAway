@@ -91,7 +91,7 @@ app.put(
       throw new ExpressError(400, "Send valid data");
     }
     let { id } = req.params;
-    await Listing.findByIdAndUpdate(id, { ...req.body.listing });
+    await Listing.findByIdAndUpdate(id, {...req.body.listing});
     res.redirect(`/listings/${id}`);
   })
 );
