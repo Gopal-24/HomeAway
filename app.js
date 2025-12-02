@@ -7,9 +7,13 @@ const ejsMate = require("ejs-mate");
 const ExpressError = require("./utils/ExpressError.js");
 const session = require("express-session");
 const flash = require("connect-flash");
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const User = require("./models/user.js");
 
-const listings = require("./route/listing.js");
-const reviews = require("./route/review.js");
+const listingRouter = require("./route/listing.js");
+const reviewRouter = require("./route/review.js");
+const userRouter = require("./route/user.js");
 
 const MONGO_URL = "mongodb://127.0.0.1:27017/homeaway";
 
@@ -50,14 +54,65 @@ app.get("/", (req, res) => {
 app.use(session(sessionOptions));
 app.use(flash());
 
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(new LocalStrategy(async (username, password, done) => {
+  try {
+    // A. Find the user by username
+    const user = await User.findOne({ username: username });
+    if (!user) {
+      return done(null, false, { message: "User not found" });
+    }
+
+    // B. Use the plugin's instance method to check the password
+    // This returns a generic object { user: ... } if successful
+    const result = await user.authenticate(password);
+    
+    if (result.user) {
+      return done(null, result.user);
+    } else {
+      return done(null, false, { message: "Incorrect password" });
+    }
+  } catch (err) {
+    return done(err);
+  }
+}));
+
+// 2. Manual Serialization (How to store user in session)
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+// 3. Manual Deserialization (How to retrieve user from session)
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (err) {
+    done(err);
+  }
+});
+
 app.use((req, res, next) => {
   res.locals.success = req.flash("success");
   res.locals.error = req.flash("error");
   next();
 });
 
-app.use("/listings", listings);
-app.use("/listings/:id/reviews", reviews);
+// app.get("/registerUser", async (req, res) => {
+//   let fakeUser = new User({
+//     email: "student@gmail.com",
+//     username: "student",
+//   });
+
+//   let registerdUser = await User.register(fakeUser, "helloworld");
+//   res.send(registerdUser);
+// })
+
+app.use("/listings", listingRouter);
+app.use("/listings/:id/reviews", reviewRouter);
+app.use("/", userRouter);
 
 app.use((req, res, next) => {
   next(new ExpressError(404, "Page Not Found!"));
