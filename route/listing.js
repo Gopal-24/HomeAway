@@ -2,7 +2,12 @@ const express = require("express");
 const router = express.Router();
 const wrapAsync = require("../utils/wrapAsync.js");
 const Listing = require("../models/listing.js");
-const { isLoggedIn, isOwner, validateListing, validateReview } = require("../middleware.js");
+const {
+  isLoggedIn,
+  isOwner,
+  validateListing,
+  validateReview,
+} = require("../middleware.js");
 
 // index route
 router.get(
@@ -23,7 +28,9 @@ router.get(
   "/:id",
   wrapAsync(async (req, res) => {
     let { id } = req.params;
-    const listing = await Listing.findById(id).populate("reviews").populate("owner");
+    const listing = await Listing.findById(id)
+      .populate({ path: "reviews", populate: { path: "author" } })
+      .populate("owner");
     if (!listing) {
       req.flash("error", "Listing Not Found!");
       return res.redirect("/listings");
@@ -71,7 +78,7 @@ router.put(
   wrapAsync(async (req, res) => {
     let { id } = req.params;
     let listing = await Listing.findById(id);
-    if(!listing.owner.equals(res.locals.currUser._id)) {
+    if (!listing.owner.equals(res.locals.currUser._id)) {
       req.flash("error", "You are not authorized to edit this Listing");
       return res.redirect(`/listings/${id}`);
     }
